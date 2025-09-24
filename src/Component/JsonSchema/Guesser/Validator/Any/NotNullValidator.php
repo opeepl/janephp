@@ -17,6 +17,12 @@ class NotNullValidator implements ValidatorInterface
     public function supports($object): bool
     {
         if (\get_class($object) === JsonSchema::class) {
+            $oneOf = $object->getOneOf();
+
+            if ($oneOf !== null && \count($oneOf) > 0) {
+                return !$this->isObjectNullable($object);
+            }
+
             return \is_array($object->getType()) ? !\in_array('null', $object->getType()) : 'null' !== $object->getType();
         }
         if (\get_class($object) === 'Jane\\Component\\OpenApi2\\JsonSchema\\Model\\Schema') {
@@ -38,5 +44,26 @@ class NotNullValidator implements ValidatorInterface
         $guess->addValidatorGuess(new ValidatorGuess(NotNull::class, [
             'message' => 'This value should not be null.',
         ]));
+    }
+
+    protected function isObjectNullable($property): bool {
+        $oneOf = $property->getOneOf();
+
+        if ($oneOf !== null && \count($oneOf) > 0) {
+            foreach ($oneOf as $oneOfProperty) {
+                if (!($oneOfProperty instanceof JsonSchema)) {
+                    continue;
+                }
+                if ($this->isObjectNullable($oneOfProperty)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $type = $property->getType();
+
+        return 'null' == $type || (\is_array($type) && \in_array('null', $type));
     }
 }
